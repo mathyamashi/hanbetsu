@@ -173,7 +173,12 @@
       }
 
       function formatTime(ms) {
-        const sec = (ms / 1000).toFixed(1);
+        const totalSec = ms / 1000;
+        const min = Math.floor(totalSec / 60);
+        const sec = (totalSec % 60).toFixed(1);
+        if (min > 0) {
+          return `${min}分${sec}秒`;
+        }
         return `${sec}秒`;
       }
 
@@ -224,6 +229,11 @@
             setShowMarker(null);
           }
         }, [answeredCount]);
+
+        const formatDiscriminantCalc = (a, b, c) => {
+          const wrap = (val) => (val < 0 ? `(${val})` : val);
+          return `${wrap(b)}² - 4 × ${wrap(a)} × ${wrap(c)}`;
+        };
 
         const handleAnswer = (nature) => {
           if (isCorrect !== null || !problem) return;
@@ -292,11 +302,18 @@
                   <h3 className="text-center font-black text-rose-500 text-lg uppercase tracking-wider">Review mistakes</h3>
                   <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-2 pb-4 custom-scroll">
                     {mistakes.map((m, i) => (
-                      <div key={i} className="bg-white p-6 rounded-2xl border border-rose-100 shadow-sm flex flex-col gap-3">
-                        <div className="text-center font-black text-xl text-zinc-700">{formatEquation(m.problem.a, m.problem.b, m.problem.c)}</div>
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="bg-zinc-100 px-3 py-1 rounded-full font-bold text-zinc-500">D = {m.problem.discriminant}</div>
-                          <div className="font-black text-rose-500">
+                      <div key={i} className="bg-white p-6 rounded-2xl border border-rose-100 shadow-sm flex flex-col md:flex-row items-center md:justify-between gap-4">
+                        <div className="flex flex-col items-center md:items-start">
+                          <div className="text-[10px] font-black text-zinc-300 uppercase tracking-widest mb-1">
+                            No. {m.qNum}
+                          </div>
+                          <div className="font-black text-xl text-zinc-700">{formatEquation(m.problem.a, m.problem.b, m.problem.c)}</div>
+                        </div>
+                        <div className="flex flex-col items-center md:items-end gap-2 shrink-0">
+                          <div className="bg-zinc-100 px-3 py-1 rounded-full font-bold text-zinc-500 text-[10px]">
+                            D = {formatDiscriminantCalc(m.problem.a, m.problem.b, m.problem.c)} = {m.problem.discriminant}
+                          </div>
+                          <div className="font-black text-rose-500 text-xs">
                             正解: {getNatureLabel(m.problem.nature)}
                           </div>
                         </div>
@@ -317,8 +334,15 @@
             </header>
 
             <main className="flex-1 flex flex-col items-center justify-center p-4 max-w-2xl mx-auto w-full">
-              <div className="w-full space-y-8">
-                <div className="flex justify-between items-center px-2">
+              <AnimatePresence mode="wait">
+                <motion.div 
+                  key={answeredCount} 
+                  initial={{ opacity: 0, x: 10 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  exit={{ opacity: 0, x: -10 }}
+                  className="w-full space-y-8"
+                >
+                  <div className="flex justify-between items-center px-2">
                   <div className="flex items-center gap-2">
                     <div className="bg-[#5D5FEF] text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-tighter">Progress</div>
                     <span className="text-sm font-black text-zinc-400">{answeredCount} / 10</span>
@@ -358,13 +382,21 @@
                       key={n.id} 
                       onClick={() => handleAnswer(n.id)} 
                       disabled={isCorrect !== null} 
-                      className={`p-5 border-4 rounded-3xl text-lg font-black transition-all ${
+                      className={`relative p-5 border-4 rounded-3xl text-lg font-black transition-all ${
                         isCorrect !== null 
                         ? (problem?.nature === n.id ? 'border-rose-400 bg-rose-50 text-rose-600 scale-[0.98]' : (selectedNature === n.id ? 'border-sky-400 bg-sky-50 text-sky-600' : 'border-zinc-100 text-zinc-300 opacity-50'))
                         : 'border-white bg-white text-zinc-700 shadow-md hover:border-[#5D5FEF] hover:shadow-xl hover:-translate-y-1'
                       }`}
                     >
                       {n.label}
+                      {/* 正解表示用の〇 */}
+                      {isCorrect !== null && problem?.nature === n.id && (
+                        <div className="absolute top-0 right-2 text-rose-500 text-3xl opacity-80 select-none">〇</div>
+                      )}
+                      {/* 間違い表示用の× */}
+                      {isCorrect === false && selectedNature === n.id && (
+                        <div className="absolute top-0 right-2 text-sky-500 text-3xl opacity-80 select-none">×</div>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -386,7 +418,7 @@
                         <div className="p-4 bg-white/70 rounded-2xl space-y-2">
                           <div className="flex items-center gap-2 text-zinc-400 font-bold text-xs uppercase tracking-widest"><LucideIcon name="binary" size={12}/><span>Explanation</span></div>
                           <p className="font-bold text-zinc-600">
-                            D = ({problem.b})² - 4({problem.a})({problem.c}) = <span className="text-[#5D5FEF] underline">{problem.discriminant}</span>
+                            D = {formatDiscriminantCalc(problem.a, problem.b, problem.c)} = <span className="text-[#5D5FEF] underline">{problem.discriminant}</span>
                           </p>
                           <p className="font-black text-xl text-zinc-800">
                             D {problem.discriminant > 0 ? '> 0' : (problem.discriminant < 0 ? '< 0' : '= 0')} なので <span className="text-[#5D5FEF]">{getNatureLabel(problem.nature)}</span>
@@ -396,8 +428,9 @@
                     )}
                   </AnimatePresence>
                 </div>
-              </div>
-            </main>
+              </motion.div>
+            </AnimatePresence>
+          </main>
 
             <footer className="p-4 text-center text-[10px] text-zinc-300 font-bold uppercase tracking-widest">
               Quadratic Discriminant Drill v2.1 | Standalone
