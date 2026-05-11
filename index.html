@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>判別式ドリル - スタンドアロン版</title>
+    <title>判別式ドリル</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -390,70 +390,70 @@
                                         <h2 className="text-sm md:text-base font-black text-[#5D5FEF]">次の２次方程式の解の種類を判別しよう！</h2>
                                     </div>
                                     <div className="relative h-20 md:h-28 flex items-center justify-center">
-                                        <AnimatePresence mode="wait">
-                                            <motion.div key={JSON.stringify(state.currentProblem)} className="w-full p-4 bg-amber-50/80 border border-amber-200/60 rounded-xl shadow-sm text-center relative z-1">
-                                                <p className="text-xl md:text-3xl font-black tracking-tighter text-zinc-800">{state.currentProblem ? formatEquation(state.currentProblem.a, state.currentProblem.b, state.currentProblem.c) : 'Loading...'}</p>
+                                        <AnimatePresence mode=\"wait\">
+                                            <motion.div key={JSON.stringify(state.currentProblem)} className=\"w-full p-4 bg-amber-50/80 border border-amber-200/60 rounded-xl shadow-sm text-center relative z-1\">
+                                                <p className=\"text-xl md:text-3xl font-black tracking-tighter text-zinc-800\">{state.currentProblem ? formatEquation(state.currentProblem.a, state.currentProblem.b, state.currentProblem.c) : 'Loading...'}</p>
                                             </motion.div>
                                         </AnimatePresence>
                                         <AnimatePresence>
                                             {showMarker && (
-                                                <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1.1 }} exit={{ opacity: 0, scale: 1.3 }} className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+                                                <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1.1 }} exit={{ opacity: 0, scale: 1.3 }} className=\"absolute inset-0 z-50 flex items-center justify-center pointer-events-none\">
                                                     <span className={`text-[120px] md:text-[180px] font-black pointer-events-none drop-shadow-2xl ${showMarker === 'correct' ? 'text-rose-500' : 'text-emerald-500'}`}>{showMarker === 'correct' ? '〇' : '×'}</span>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                        <OptionCard id="distinct_real" title="異なる2つの実数解" icon={Zap} selected={state.selectedNature === 'distinct_real'} disabled={state.isCorrect !== null} onClick={() => handleAnswer('distinct_real')} status={state.isCorrect !== null ? (state.currentProblem?.nature === 'distinct_real' ? 'correct' : (state.selectedNature === 'distinct_real' ? 'wrong' : 'neutral')) : 'neutral'} />
-                                        <OptionCard id="repeated_real" title="重解" icon={Star} selected={state.selectedNature === 'repeated_real'} disabled={state.isCorrect !== null} onClick={() => handleAnswer('repeated_real')} status={state.isCorrect !== null ? (state.currentProblem?.nature === 'repeated_real' ? 'correct' : (state.selectedNature === 'repeated_real' ? 'wrong' : 'neutral')) : 'neutral'} />
-                                        <OptionCard id="distinct_complex" title="異なる2つの虚数解" icon={Sparkles} selected={state.selectedNature === 'distinct_complex'} disabled={state.isCorrect !== null} onClick={() => handleAnswer('distinct_complex')} status={state.isCorrect !== null ? (state.currentProblem?.nature === 'distinct_complex' ? 'correct' : (state.selectedNature === 'distinct_complex' ? 'wrong' : 'neutral')) : 'neutral'} />
+                                    <div className=\"grid grid-cols-1 md:grid-cols-3 gap-2\">
+                                        <OptionCard id=\"distinct_real\" title=\"異なる2つの実数解\" icon={Zap} selected={state.selectedNature === 'distinct_real'} disabled={state.isCorrect !== null} onClick={() => handleAnswer('distinct_real')} status={state.isCorrect !== null ? (state.currentProblem?.nature === 'distinct_real' ? 'correct' : (state.selectedNature === 'distinct_real' ? 'wrong' : 'neutral')) : 'neutral'} />
+                                        <OptionCard id=\"repeated_real\" title=\"重解\" icon={Star} selected={state.selectedNature === 'repeated_real'} disabled={state.isCorrect !== null} onClick={() => handleAnswer('repeated_real')} status={state.isCorrect !== null ? (state.currentProblem?.nature === 'repeated_real' ? 'correct' : (state.selectedNature === 'repeated_real' ? 'wrong' : 'neutral')) : 'neutral'} />
+                                        <OptionCard id=\"distinct_complex\" title=\"異なる2つの虚数解\" icon={Sparkles} selected={state.selectedNature === 'distinct_complex'} disabled={state.isCorrect !== null} onClick={() => handleAnswer('distinct_complex')} status={state.isCorrect !== null ? (state.currentProblem?.nature === 'distinct_complex' ? 'correct' : (state.selectedNature === 'distinct_complex' ? 'wrong' : 'neutral')) : 'neutral'} />
                                     </div>
-                                    <div className="min-h-[140px] md:min-h-[160px] flex items-start justify-center">
+                                    <div className=\"min-h-[140px] md:min-h-[160px] flex items-start justify-center\">
                                         <AnimatePresence>
                                             {state.isCorrect !== null && (
                                                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`w-full p-2.5 rounded-2xl border-2 ${state.isCorrect ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-                                                    <div className="space-y-1.5">
-                                                        <div className="flex items-center justify-between bg-white/40 p-1 rounded-lg">
-                                                            <div className="flex items-center gap-2">
+                                                    <div className=\"space-y-1.5\">
+                                                        <div className=\"flex items-center justify-between bg-white/40 p-1 rounded-lg\">
+                                                            <div className=\"flex items-center gap-2\">
                                                                 <div className={`p-1.5 rounded-full ${state.isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
                                                                     {state.isCorrect ? <Smile size={20} /> : <Cat size={20} />}
                                                                 </div>
                                                                 <div>
-                                                                    <h4 className="text-sm font-black">{state.isCorrect ? '〇 正解！' : '× ざんねん...'}</h4>
-                                                                    <p className="text-[9px] font-bold text-zinc-500">{state.isCorrect ? 'その調子👍' : '次はあたるよ🔥'}</p>
+                                                                    <h4 className=\"text-sm font-black\">{state.isCorrect ? '〇 正解！' : '× ざんねん...'}</h4>
+                                                                    <p className=\"text-[9px] font-bold text-zinc-500\">{state.isCorrect ? 'その調子👍' : '次はあたるよ🔥'}</p>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div className="space-y-1.5">
-                                                            <div className={!state.isCorrect ? "flex flex-col sm:flex-row gap-2 items-stretch" : "space-y-1.5"}>
+                                                        <div className=\"space-y-1.5\">
+                                                            <div className={!state.isCorrect ? \"flex flex-col sm:flex-row gap-2 items-stretch\" : \"space-y-1.5\"}>
                                                                 <div className={`bg-white/80 p-2.5 rounded-xl border border-zinc-100 shadow-sm space-y-1.5 ${!state.isCorrect ? 'flex-[1]' : ''}`}>
-                                                                    <div className="space-y-1">
-                                                                        <div className="flex items-center gap-1.5 text-[#5D5FEF]"><Binary size={12} /><span className="font-bold uppercase tracking-wider text-[10px]">計算式</span></div>
-                                                                        <div className="text-zinc-900 font-black text-base md:text-lg leading-tight grid grid-cols-[auto_1fr] gap-x-1.5">
-                                                                            <span className="text-right">D</span>
-                                                                            <div className="flex flex-col">
+                                                                    <div className=\"space-y-1\">
+                                                                        <div className=\"flex items-center gap-1.5 text-[#5D5FEF]\"><Binary size={12} /><span className=\"font-bold uppercase tracking-wider text-[10px]\">計算式</span></div>
+                                                                        <div className=\"text-zinc-900 font-black text-base md:text-lg leading-tight grid grid-cols-[auto_1fr] gap-x-1.5\">
+                                                                            <span className=\"text-right\">D</span>
+                                                                            <div className=\"flex flex-col\">
                                                                                 <span>= ({state.currentProblem?.b})² - 4 × {state.currentProblem?.a} × {state.currentProblem?.c}</span>
-                                                                                <span>= {state.currentProblem?.discriminant} {state.currentProblem?.discriminant > 0 ? "> 0" : (state.currentProblem?.discriminant < 0 ? "< 0" : "= 0")}</span>
+                                                                                <span>= {state.currentProblem?.discriminant} {state.currentProblem?.discriminant > 0 ? \"> 0\" : (state.currentProblem?.discriminant < 0 ? \"< 0\" : \"= 0\")}</span>
                                                                             </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
 
                                                                 {!state.isCorrect && (
-                                                                    <div className="flex-[2] p-2.5 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-1.5">
-                                                                        <div className="flex items-center gap-1.5 text-[#5D5FEF]">
+                                                                    <div className=\"flex-[2] p-2.5 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-1.5\">
+                                                                        <div className=\"flex items-center gap-1.5 text-[#5D5FEF]\">
                                                                             <HelpCircle size={14} />
-                                                                            <span className="text-[12px] font-black tracking-widest uppercase">おさらい ✨</span>
+                                                                            <span className=\"text-[12px] font-black tracking-widest uppercase\">おさらい ✨</span>
                                                                         </div>
-                                                                        <div className="flex gap-2 items-stretch">
-                                                                            <div className="flex-1 bg-white/60 p-1.5 rounded-lg flex flex-col items-center justify-center border border-indigo-50">
-                                                                                <span className="text-[10px] font-bold text-indigo-400 mb-0.5 leading-tight text-center">解の判別式</span>
-                                                                                <span className="text-[14px] font-black text-indigo-600">D = b² - 4ac</span>
+                                                                        <div className=\"flex gap-2 items-stretch\">
+                                                                            <div className=\"flex-1 bg-white/60 p-1.5 rounded-lg flex flex-col items-center justify-center border border-indigo-50\">
+                                                                                <span className=\"text-[10px] font-bold text-indigo-400 mb-0.5 leading-tight text-center\">解の判別式</span>
+                                                                                <span className=\"text-[14px] font-black text-indigo-600\">D = b² - 4ac</span>
                                                                             </div>
-                                                                            <div className="flex-[2.5] flex flex-col gap-1 text-[11px] font-bold">
-                                                                                <div className="px-1.5 py-1 bg-white rounded-md text-indigo-500 shadow-sm border border-indigo-50 whitespace-nowrap">D > 0 : 2つの実数解</div>
-                                                                                <div className="px-1.5 py-1 bg-white rounded-md text-indigo-500 shadow-sm border border-indigo-50 whitespace-nowrap">D = 0 : 重解</div>
-                                                                                <div className="px-1.5 py-1 bg-white rounded-md text-indigo-500 shadow-sm border border-indigo-50 whitespace-nowrap">D < 0 : 2つの虚数解</div>
+                                                                            <div className=\"flex-[2.5] flex flex-col gap-1 text-[11px] font-bold\">
+                                                                                <div className=\"px-1.5 py-1 bg-white rounded-md text-indigo-500 shadow-sm border border-indigo-50 whitespace-nowrap\">D > 0 : 2つの実数解</div>
+                                                                                <div className=\"px-1.5 py-1 bg-white rounded-md text-indigo-500 shadow-sm border border-indigo-50 whitespace-nowrap\">D = 0 : 重解</div>
+                                                                                <div className=\"px-1.5 py-1 bg-white rounded-md text-indigo-500 shadow-sm border border-indigo-50 whitespace-nowrap\">D < 0 : 2つの虚数解</div>
                                                                             </div>
                                                                         </div>
                                                                     </div>
