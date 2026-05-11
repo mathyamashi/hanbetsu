@@ -1,578 +1,480 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Sparkles,
-  Star,
-  RefreshCw, 
-  HelpCircle,
-  ChevronRight,
-  Trophy,
-  Binary,
-  Smile,
-  Cat,
-  Zap
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { generateProblem, formatEquation } from './lib/math';
-import { QuadraticEquation, RootNature, QuizState } from './types';
-import { OptionCard } from './components/OptionCard';
-
-export default function App() {
-  const [showMarker, setShowMarker] = useState<'correct' | 'wrong' | null>(null);
-  const autoNextTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [state, setState] = useState<QuizState>({
-    status: 'start',
-    currentProblem: null,
-    score: 0,
-    totalAnswered: 0,
-    isCorrect: null,
-    selectedNature: null,
-    explanation: null,
-    startTime: null,
-    endTime: null,
-    mistakes: [],
-    usedProblems: [],
-  });
-
-  const generateUniqueProblem = useCallback((used: string[]) => {
-    let problem = generateProblem();
-    let equationStr = formatEquation(problem.a, problem.b, problem.c);
-    let attempts = 0;
-    while (used.includes(equationStr) && attempts < 50) {
-      problem = generateProblem();
-      equationStr = formatEquation(problem.a, problem.b, problem.c);
-      attempts++;
-    }
-    return problem;
-  }, []);
-
-  const startQuiz = () => {
-    const firstProblem = generateProblem();
-    const equationStr = formatEquation(firstProblem.a, firstProblem.b, firstProblem.c);
-    setState({
-      status: 'playing',
-      currentProblem: firstProblem,
-      score: 0,
-      totalAnswered: 0,
-      isCorrect: null,
-      selectedNature: null,
-      explanation: null,
-      startTime: Date.now(),
-      endTime: null,
-      mistakes: [],
-      usedProblems: [equationStr],
-    });
-  };
-
-  const startNewProblem = useCallback(() => {
-    if (autoNextTimeoutRef.current) {
-      clearTimeout(autoNextTimeoutRef.current);
-      autoNextTimeoutRef.current = null;
-    }
-
-    setState(prev => {
-      const nextTotal = prev.totalAnswered + 1;
-      if (nextTotal >= 10) {
-        return {
-          ...prev,
-          status: 'result',
-          totalAnswered: nextTotal,
-          isCorrect: null,
-          currentProblem: null,
-          explanation: null,
-          selectedNature: null,
-          endTime: Date.now()
-        };
-      }
-      const nextProblem = generateUniqueProblem(prev.usedProblems);
-      const equationStr = formatEquation(nextProblem.a, nextProblem.b, nextProblem.c);
-      return {
-        ...prev,
-        totalAnswered: nextTotal,
-        currentProblem: nextProblem,
-        isCorrect: null,
-        selectedNature: null,
-        explanation: null,
-        usedProblems: [...prev.usedProblems, equationStr],
-      };
-    });
-  }, [generateUniqueProblem]);
-
-  const resetQuiz = () => {
-    setState({
-      status: 'start',
-      currentProblem: null,
-      score: 0,
-      totalAnswered: 0,
-      isCorrect: null,
-      selectedNature: null,
-      explanation: null,
-      startTime: null,
-      endTime: null,
-      mistakes: [],
-      usedProblems: [],
-    });
-  };
-
-  // Initialize first problem on mount
-  useEffect(() => {
-    // No longer auto-start on mount if we have a start screen
-  }, []);
-
-  const handleAnswer = async (nature: RootNature) => {
-    if (state.isCorrect !== null || !state.currentProblem) return;
-
-    const isCorrect = nature === state.currentProblem.nature;
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>判別式ドリル - スタンドアロン版</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     
-    // Trigger marker animation
-    setShowMarker(isCorrect ? 'correct' : 'wrong');
-    setTimeout(() => setShowMarker(null), 800);
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide-react@latest"></script>
+    
+    <!-- Framer Motion -->
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
 
-    setState(prev => ({
-      ...prev,
-      isCorrect,
-      selectedNature: nature,
-      score: isCorrect ? prev.score + 1 : prev.score,
-      mistakes: isCorrect ? prev.mistakes : [...prev.mistakes, { 
-        problem: prev.currentProblem!, 
-        userAnswer: nature,
-        questionNumber: prev.totalAnswered + 1
-      }]
-    }));
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-    // Auto-proceed after 2 seconds regardless of whether the answer is correct or incorrect
-    if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
-    autoNextTimeoutRef.current = setTimeout(() => {
-      startNewProblem();
-    }, 2000);
-  };
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef, useMemo } = React;
+        const { motion, AnimatePresence } = FramerMotion;
+        const { 
+            Sparkles, Star, RefreshCw, HelpCircle, ChevronRight, 
+            Trophy, Binary, Smile, Cat, Zap 
+        } = LucideReact;
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
-    };
-  }, []);
+        // --- Math Logic ---
+        function generateProblem() {
+            const randA = Math.random();
+            let a = 1;
+            if (randA < 0.1) a = -1;
 
-  return (
-    <div className="h-[100dvh] flex flex-col bg-[#F8F9FD] text-[#4A4A4A] selection:bg-[#5D5FEF] selection:text-white overflow-hidden">
-      {/* Header */}
-      <header className="flex-none border-b border-indigo-100 bg-white/70 backdrop-blur-xl z-10 px-4">
-        <div className="max-w-4xl mx-auto h-11 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-[#5D5FEF] p-1.5 rounded-lg shadow-md">
-              <Zap className="text-white" size={18} />
-            </div>
-            <h1 className="text-base font-black tracking-tight text-zinc-800">判別式ドリル</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            {state.status === 'playing' && (
-              <div className="flex items-center gap-1.5 bg-indigo-50 px-3 py-1 rounded-full">
-                <span className="text-[10px] text-zinc-500 font-bold">残り</span>
-                <span className="font-mono text-sm font-black text-[#5D5FEF]">{10 - state.totalAnswered}</span>
-                <span className="text-zinc-500 text-[10px] font-bold">問</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+            const randNature = Math.random();
+            let targetNature;
+            if (randNature < 0.4) targetNature = 'distinct_real';
+            else if (randNature < 0.7) targetNature = 'distinct_complex';
+            else targetNature = 'repeated_real';
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-2 font-sans overflow-y-auto overflow-x-hidden flex flex-col justify-center">
-        <AnimatePresence mode="wait">
-          {state.status === 'start' ? (
-            <motion.div
-              key="start"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.05 }}
-              className="flex flex-col items-center justify-center py-4 space-y-6"
-            >
-              <div className="text-center space-y-3">
-                <h2 className="text-3xl md:text-5xl font-black tracking-tight text-zinc-800 leading-tight">
-                  判別式<br className="md:hidden" />トレーニング
-                </h2>
-                <p className="text-zinc-500 font-medium max-w-sm mx-auto leading-relaxed text-sm">
-                  ２次方程式の解の種類を判別しよう！<br />制限時間なし・全１０問
-                </p>
-              </div>
+            let b = 0, c = 0, d = -1;
 
-              <button
-                onClick={startQuiz}
-                className="group relative inline-flex items-center justify-center px-10 py-5 font-black text-white transition-all duration-200 bg-[#5D5FEF] rounded-2xl hover:bg-indigo-600 active:scale-95 shadow-2xl shadow-indigo-200 text-xl overflow-hidden"
-              >
-                <span className="relative z-10 flex items-center gap-2">
-                  スタート！
-                  <ChevronRight size={24} />
-                </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              </button>
-            </motion.div>
-          ) : state.status === 'result' ? (
-            <motion.div
-              key="summary"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-3 py-1"
-            >
-              <div className="text-center space-y-0.5">
-                <div className="inline-flex p-1.5 bg-indigo-50 rounded-full text-[#5D5FEF] mb-0.5">
-                  <Trophy size={28} />
-                </div>
-                <h2 className="text-xl font-black text-zinc-800 tracking-tight">トレーニング終了！</h2>
-              </div>
+            if (targetNature === 'repeated_real') {
+                const k = Math.floor(Math.random() * 7) - 3; 
+                b = 2 * a * k;
+                c = a * k * k;
+                d = b * b - 4 * a * c;
+            } else {
+                let attempts = 0;
+                while (attempts < 100) {
+                    b = Math.floor(Math.random() * 11) - 5;
+                    c = Math.floor(Math.random() * 9) - 4;
+                    d = b * b - 4 * a * c;
+                    if (targetNature === 'distinct_real' && d > 0) break;
+                    if (targetNature === 'distinct_complex' && d < 0) break;
+                    attempts++;
+                }
+            }
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                {/* Correct Answers */}
-                <div className="bg-white p-3 rounded-2xl border border-indigo-50 shadow-sm flex flex-col items-center justify-center space-y-0.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">正解数</span>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-black text-[#5D5FEF]">{state.score}</span>
-                    <span className="text-[10px] font-bold text-zinc-400">/ 10</span>
-                  </div>
-                </div>
+            let nature = 'distinct_real';
+            if (d === 0) nature = 'repeated_real';
+            else if (d < 0) nature = 'distinct_complex';
 
-                {/* Time Taken */}
-                <div className="bg-white p-3 rounded-2xl border border-indigo-50 shadow-sm flex flex-col items-center justify-center space-y-0.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">タイム</span>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black text-[#5D5FEF]">
-                      {state.startTime && state.endTime 
-                        ? formatTime(state.endTime - state.startTime)
-                        : '0.0秒'}
-                    </span>
-                  </div>
-                </div>
+            return { a, b, c, discriminant: d, nature };
+        }
 
-                {/* Performance Score */}
-                <div className="bg-white p-3 rounded-2xl border border-[#5D5FEF]/20 shadow-md shadow-indigo-50 flex flex-col items-center justify-center space-y-0.5 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-1 opacity-5">
-                    <Zap size={32} className="text-[#5D5FEF]" />
-                  </div>
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">総合スコア</span>
-                  <div className="flex items-baseline gap-1 focus:outline-none">
-                    <span className="text-2xl font-black text-[#5D5FEF]">
-                      {(() => {
-                        if (!state.startTime || !state.endTime) return 0;
-                        const timeInSeconds = (state.endTime - state.startTime) / 1000;
-                        const baseScore = state.score * 1000;
-                        const timeBonus = Math.max(0, Math.floor((120 - timeInSeconds) * 20));
-                        return baseScore + timeBonus;
-                      })()}
-                    </span>
-                  </div>
-                </div>
-              </div>
+        function formatEquation(a, b, c) {
+            const formatTerm = (val, variable, isFirst = false) => {
+                if (val === 0) return '';
+                let res = '';
+                if (val > 0 && !isFirst) res += '+ ';
+                if (val < 0) res += '- ';
+                const absVal = Math.abs(val);
+                if (absVal !== 1 || variable === '') res += absVal;
+                res += variable;
+                return res + ' ';
+            };
+            let str = formatTerm(a, 'x²', true);
+            str += formatTerm(b, 'x');
+            str += formatTerm(c, '');
+            return str.trim() + ' = 0';
+        }
 
-              <div className="flex flex-col items-center gap-2 pt-1">
-                <div className="relative w-20 h-20">
-                   <svg className="w-full h-full" viewBox="0 0 100 100">
-                    <circle 
-                      cx="50" cy="50" r="45" 
-                      fill="none" 
-                      stroke="#EEF2FF" 
-                      strokeWidth="8"
-                    />
-                    <motion.circle 
-                      cx="50" cy="50" r="45" 
-                      fill="none" 
-                      stroke="#5D5FEF" 
-                      strokeWidth="8"
-                      strokeDasharray="283"
-                      initial={{ strokeDashoffset: 283 }}
-                      animate={{ strokeDashoffset: 283 - (283 * state.score) / 10 }}
-                      strokeLinecap="round"
-                      transform="rotate(-90 50 50)"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-base font-black text-[#5D5FEF]">{Math.round((state.score / 10) * 100)}%</span>
-                  </div>
-                </div>
+        function getNatureLabel(nature) {
+            switch (nature) {
+                case 'distinct_real': return '異なる2つの実数解';
+                case 'repeated_real': return '重解';
+                case 'distinct_complex': return '異なる2つの虚数解';
+                default: return '';
+            }
+        }
 
-                <button
-                  onClick={resetQuiz}
-                  className="px-6 py-2.5 bg-[#5D5FEF] text-white font-black rounded-full shadow-lg shadow-indigo-100 hover:bg-indigo-600 transition-all active:scale-95 flex items-center gap-2 text-xs"
+        function formatTime(ms) {
+            const totalSeconds = ms / 1000;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = (totalSeconds % 60).toFixed(1);
+            return minutes > 0 ? `${minutes}分${seconds}秒` : `${seconds}秒`;
+        }
+
+        // --- Components ---
+        function OptionCard({ title, description, icon: Icon, selected, disabled, onClick, status }) {
+            const getBorderColor = () => {
+                if (status === 'correct') return 'border-rose-400 bg-rose-50 shadow-[2px_2px_0px_0px_rgba(244,63,94,0.2)]';
+                if (status === 'wrong') return 'border-emerald-400 bg-emerald-50 shadow-[2px_2px_0px_0px_rgba(16,185,129,0.2)]';
+                if (selected) return 'border-[#5D5FEF] bg-[#5D5FEF]/5 shadow-[2px_2px_0px_0px_rgba(93,95,239,0.3)]';
+                return 'border-zinc-200 bg-white hover:border-[#5D5FEF]/50';
+            };
+
+            return (
+                <motion.button
+                    whileHover={!disabled ? { scale: 1.02 } : {}}
+                    whileTap={!disabled ? { scale: 0.98 } : {}}
+                    onClick={onClick}
+                    disabled={disabled}
+                    className={`
+                        w-full p-1.5 md:p-2 border-2 rounded-xl text-left transition-all duration-200
+                        flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-1.5 focus:outline-none relative overflow-hidden
+                        ${getBorderColor()}
+                        ${disabled ? 'cursor-default' : 'cursor-pointer'}
+                    `}
                 >
-                  <RefreshCw size={16} />
-                  もう一度挑戦する
-                </button>
-              </div>
-
-              {/* Mistakes List */}
-              {state.mistakes.length > 0 && (
-                <div className="space-y-2 pt-3 border-t border-indigo-50">
-                  <h3 className="text-[11px] font-black text-zinc-700 flex items-center gap-1.5 justify-center">
-                    <HelpCircle size={14} className="text-rose-500" />
-                    ミスした問題を復習
-                  </h3>
-                  <div className="grid grid-cols-1 gap-2.5 max-h-[180px] overflow-y-auto pr-1">
-                    {state.mistakes.map((mistake, idx) => (
-                      <div key={idx} className="bg-white p-3 rounded-2xl border border-rose-100 shadow-sm space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black text-rose-500">
-                            No.{mistake.questionNumber}
-                          </span>
-                        </div>
-                        <div className="flex flex-col sm:flex-row gap-2 items-center">
-                          <div className="flex-1 text-center px-2 py-2 bg-zinc-50/50 rounded-xl flex items-center justify-center min-h-[40px]">
-                            <p className="text-sm font-black text-zinc-800 tracking-tight leading-none">
-                              {formatEquation(mistake.problem.a, mistake.problem.b, mistake.problem.c)}
-                            </p>
-                          </div>
-                          <div className="flex-[2] text-[10px] font-sans font-bold text-zinc-500 bg-zinc-50 p-2 rounded-xl border border-zinc-100 leading-tight flex flex-col justify-center">
-                            <div className="grid grid-cols-[1.2rem_1fr] md:grid-cols-[1.5rem_1fr] gap-x-1 mx-auto">
-                              <div className="text-[#5D5FEF] font-bold text-right">D =</div>
-                              <div className="text-left text-zinc-400 font-medium">({mistake.problem.b})² - 4({mistake.problem.a})({mistake.problem.c})</div>
-                              <div className="text-[#5D5FEF] font-bold text-right">=</div>
-                              <div className="text-left">
-                                {mistake.problem.discriminant === 0 ? (
-                                  <span className="text-[#5D5FEF] font-black">0</span>
-                                ) : (
-                                  <>
-                                    <span className="font-black text-zinc-800">{mistake.problem.discriminant}</span>
-                                    <span className="ml-1 text-[#5D5FEF] font-black text-[11px]">
-                                       {mistake.problem.discriminant > 0 ? " > 0" : " < 0"}
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex-none sm:w-28 flex flex-col justify-center gap-1 pl-2 border-l border-zinc-100 h-full">
-                            <div>
-                              <div className="text-[7px] text-zinc-400 font-bold uppercase leading-none mb-0.5">正解</div>
-                              <div className="text-[9px] text-rose-500 font-black leading-tight">
-                                {getNatureLabel(mistake.problem.nature)}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-[7px] text-zinc-400 font-bold uppercase leading-none mb-0.5">あなたの回答</div>
-                              <div className="text-[9px] text-[#5D5FEF] font-black leading-tight">
-                                {getNatureLabel(mistake.userAnswer)}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          ) : (
-            <div className="space-y-4">
-              {/* Question Text Outside */}
-              <div className="text-center">
-                <motion.h2 
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-sm md:text-base font-black text-[#5D5FEF]"
-                >
-                  次の２次方程式の解の種類を判別しよう！
-                </motion.h2>
-              </div>
-
-              {/* Question Card */}
-              <div className="relative h-20 md:h-28 flex items-center justify-center">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={JSON.stringify(state.currentProblem)}
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 1.02 }}
-                    className="w-full p-4 bg-amber-50/80 border border-amber-200/60 rounded-xl shadow-sm text-center relative z-1"
-                  >
-                    <p className="text-xl md:text-3xl font-black tracking-tighter text-zinc-800">
-                      {state.currentProblem ? formatEquation(state.currentProblem.a, state.currentProblem.b, state.currentProblem.c) : 'Loading...'}
-                    </p>
-                  </motion.div>
-                </AnimatePresence>
-
-                {/* Big O/X Marker Overlay (Positioned over the question) */}
-                <AnimatePresence>
-                  {showMarker && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.5 }}
-                      animate={{ opacity: 1, scale: 1.1 }}
-                      exit={{ opacity: 0, scale: 1.3 }}
-                      className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none"
-                    >
-                      <span className={`text-[120px] md:text-[180px] font-black pointer-events-none drop-shadow-2xl ${
-                        showMarker === 'correct' ? 'text-rose-500' : 'text-emerald-500'
-                      }`}>
-                        {showMarker === 'correct' ? '〇' : '×'}
-                      </span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Answer Options */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <OptionCard
-                  id="distinct_real"
-                  title="異なる2つの実数解"
-                  description=""
-                  icon={Zap}
-                  selected={state.selectedNature === 'distinct_real'}
-                  disabled={state.isCorrect !== null}
-                  onClick={() => handleAnswer('distinct_real')}
-                  status={state.isCorrect !== null ? (state.currentProblem?.nature === 'distinct_real' ? 'correct' : (state.selectedNature === 'distinct_real' ? 'wrong' : 'neutral')) : 'neutral'}
-                />
-                <OptionCard
-                  id="repeated_real"
-                  title="重解"
-                  description=""
-                  icon={Star}
-                  selected={state.selectedNature === 'repeated_real'}
-                  disabled={state.isCorrect !== null}
-                  onClick={() => handleAnswer('repeated_real')}
-                  status={state.isCorrect !== null ? (state.currentProblem?.nature === 'repeated_real' ? 'correct' : (state.selectedNature === 'repeated_real' ? 'wrong' : 'neutral')) : 'neutral'}
-                />
-                <OptionCard
-                  id="distinct_complex"
-                  title="異なる2つの虚数解"
-                  description=""
-                  icon={Sparkles}
-                  selected={state.selectedNature === 'distinct_complex'}
-                  disabled={state.isCorrect !== null}
-                  onClick={() => handleAnswer('distinct_complex')}
-                  status={state.isCorrect !== null ? (state.currentProblem?.nature === 'distinct_complex' ? 'correct' : (state.selectedNature === 'distinct_complex' ? 'wrong' : 'neutral')) : 'neutral'}
-                />
-              </div>
-
-              {/* Result Area */}
-              <div className="min-h-[140px] md:min-h-[160px] flex items-start justify-center">
-                <AnimatePresence>
-                  {state.isCorrect !== null && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`w-full p-2.5 rounded-2xl border-2 ${state.isCorrect ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}
-                    >
-                    <div className="space-y-1.5">
-                      {/* Big Marker and Icon */}
-                      <div className="flex items-center justify-between bg-white/40 p-1 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <div className={`p-1.5 rounded-full ${state.isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                            {state.isCorrect ? <Smile size={20} /> : <Cat size={20} />}
-                          </div>
-                          <div>
-                            <h4 className={`text-sm font-black ${state.isCorrect ? 'text-emerald-900' : 'text-rose-900'}`}>
-                              {state.isCorrect ? '〇 正解！' : '× ざんねん...'}
-                            </h4>
-                            <p className="text-[9px] font-bold text-zinc-500">
-                              {state.isCorrect ? 'その調子👍' : '次はあたるよ🔥'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-1.5">
-                        <div className={!state.isCorrect ? "flex flex-col sm:flex-row gap-2 items-stretch" : "space-y-1.5"}>
-                          <div className={`bg-white/80 p-2.5 rounded-xl border border-zinc-100 shadow-sm space-y-1.5 ${!state.isCorrect ? 'flex-[1]' : ''}`}>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1.5 mb-0.5 text-[#5D5FEF]">
-                                <Binary size={12} />
-                                <span className="font-bold uppercase tracking-wider text-[10px]">計算式</span>
-                              </div>
-                              <div className="text-zinc-900 font-black text-base md:text-lg leading-tight grid grid-cols-[auto_1fr] gap-x-1.5">
-                                <span className="text-right">D</span>
-                                <div className="flex flex-col">
-                                  <span>= ({state.currentProblem?.b})² - 4 × {state.currentProblem?.a && state.currentProblem.a < 0 ? `(${state.currentProblem.a})` : state.currentProblem?.a} × {state.currentProblem?.c && state.currentProblem.c < 0 ? `(${state.currentProblem.c})` : state.currentProblem?.c}</span>
-                                  <span>
-                                    = {state.currentProblem?.discriminant}
-                                    {state.currentProblem && (
-                                      state.currentProblem.discriminant > 0 ? " > 0" : 
-                                      state.currentProblem.discriminant < 0 ? " < 0" : " = 0"
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Show Review only when incorrect */}
-                          {!state.isCorrect && (
-                            <motion.div 
-                              initial={{ opacity: 0, scale: 0.98 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              className="flex-[2] p-2.5 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-1.5"
-                            >
-                               <div className="flex items-center gap-1.5 text-[#5D5FEF]">
-                                  <HelpCircle size={14} />
-                                  <span className="text-[12px] font-black tracking-widest uppercase">おさらい ✨</span>
-                                </div>
-                                <div className="flex gap-2 items-stretch">
-                                  {/* Left: Formula */}
-                                  <div className="flex-1 bg-white/60 p-1.5 rounded-lg flex flex-col items-center justify-center border border-indigo-50">
-                                    <span className="text-[10px] font-bold text-indigo-400 mb-0.5 leading-tight text-center">2次方程式の<br />解の判別式</span>
-                                    <span className="text-[14px] md:text-[16px] font-black text-indigo-600 whitespace-nowrap">D = b² - 4ac</span>
-                                  </div>
-                                  
-                                  {/* Right: Cases */}
-                                  <div className="flex-[2.5] flex flex-col gap-1 text-[11px] md:text-[13px] font-bold">
-                                    <div className="flex items-center px-1.5 py-1 bg-white rounded-md text-indigo-500 shadow-sm border border-indigo-50 whitespace-nowrap">
-                                      <span>D {'>'} 0 : 異なる2つの実数解</span>
-                                    </div>
-                                    <div className="flex items-center px-1.5 py-1 bg-white rounded-md text-indigo-500 shadow-sm border border-indigo-50 whitespace-nowrap">
-                                      <span>D = 0 : 重解</span>
-                                    </div>
-                                    <div className="flex items-center px-1.5 py-1 bg-white rounded-md text-indigo-500 shadow-sm border border-indigo-50 whitespace-nowrap">
-                                      <span>D {'<'} 0 : 異なる2つの虚数解</span>
-                                    </div>
-                                  </div>
-                                </div>
-                            </motion.div>
-                          )}
-                        </div>
-
-                        {/* Button is no longer needed as it auto-proceeds after 2 seconds */}
-                      </div>
+                    <div className="w-full text-center py-1 md:py-2 relative">
+                        <h3 className="font-black text-sm md:text-lg tracking-tight leading-tight">
+                            {title}
+                        </h3>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              </div>
-            </div>
-          )}
-        </AnimatePresence>
-      </main>
+                </motion.button>
+            );
+        }
 
-      {/* Floating Widget Position Adjusted */}
-      {state.status !== 'start' && (
-        <div className="fixed bottom-2 right-2 z-20">
-          <div className="bg-white/90 backdrop-blur-md border border-indigo-100 px-3 py-1.5 rounded-xl shadow-sm font-black text-[10px] flex items-center gap-1.5 text-[#5D5FEF]">
-            <Trophy size={12} />
-            <span>スコア: {state.score}</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+        // --- Main App ---
+        function App() {
+            const [showMarker, setShowMarker] = useState(null);
+            const autoNextTimeoutRef = useRef(null);
+            const [state, setState] = useState({
+                status: 'start',
+                currentProblem: null,
+                score: 0,
+                totalAnswered: 0,
+                isCorrect: null,
+                selectedNature: null,
+                startTime: null,
+                endTime: null,
+                mistakes: [],
+                usedProblems: [],
+            });
 
-function getNatureLabel(nature: RootNature): string {
-  switch (nature) {
-    case 'distinct_real': return '異なる2つの実数解';
-    case 'repeated_real': return '重解';
-    case 'distinct_complex': return '異なる2つの虚数解';
-    default: return '';
-  }
-}
+            const generateUniqueProblem = useCallback((used) => {
+                let problem = generateProblem();
+                let equationStr = formatEquation(problem.a, problem.b, problem.c);
+                let attempts = 0;
+                while (used.includes(equationStr) && attempts < 50) {
+                    problem = generateProblem();
+                    equationStr = formatEquation(problem.a, problem.b, problem.c);
+                    attempts++;
+                }
+                return problem;
+            }, []);
 
-function formatTime(ms: number): string {
-  const totalSeconds = ms / 1000;
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = (totalSeconds % 60).toFixed(1);
-  
-  if (minutes > 0) {
-    return `${minutes}分${seconds}秒`;
-  }
-  return `${seconds}秒`;
-}
+            const startQuiz = () => {
+                const firstProblem = generateProblem();
+                const equationStr = formatEquation(firstProblem.a, firstProblem.b, firstProblem.c);
+                setState({
+                    status: 'playing',
+                    currentProblem: firstProblem,
+                    score: 0,
+                    totalAnswered: 0,
+                    isCorrect: null,
+                    selectedNature: null,
+                    startTime: Date.now(),
+                    endTime: null,
+                    mistakes: [],
+                    usedProblems: [equationStr],
+                });
+            };
+
+            const startNewProblem = useCallback(() => {
+                if (autoNextTimeoutRef.current) {
+                    clearTimeout(autoNextTimeoutRef.current);
+                    autoNextTimeoutRef.current = null;
+                }
+
+                setState(prev => {
+                    const nextTotal = prev.totalAnswered + 1;
+                    if (nextTotal >= 10) {
+                        return {
+                            ...prev,
+                            status: 'result',
+                            totalAnswered: nextTotal,
+                            isCorrect: null,
+                            currentProblem: null,
+                            endTime: Date.now()
+                        };
+                    }
+                    const nextProblem = generateUniqueProblem(prev.usedProblems);
+                    const equationStr = formatEquation(nextProblem.a, nextProblem.b, nextProblem.c);
+                    return {
+                        ...prev,
+                        totalAnswered: nextTotal,
+                        currentProblem: nextProblem,
+                        isCorrect: null,
+                        selectedNature: null,
+                        usedProblems: [...prev.usedProblems, equationStr],
+                    };
+                });
+            }, [generateUniqueProblem]);
+
+            const handleAnswer = (nature) => {
+                if (state.isCorrect !== null || !state.currentProblem) return;
+                const isCorrect = nature === state.currentProblem.nature;
+                setShowMarker(isCorrect ? 'correct' : 'wrong');
+                setTimeout(() => setShowMarker(null), 800);
+
+                setState(prev => ({
+                    ...prev,
+                    isCorrect,
+                    selectedNature: nature,
+                    score: isCorrect ? prev.score + 1 : prev.score,
+                    mistakes: isCorrect ? prev.mistakes : [...prev.mistakes, { 
+                        problem: prev.currentProblem, 
+                        userAnswer: nature,
+                        questionNumber: prev.totalAnswered + 1
+                    }]
+                }));
+
+                if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
+                autoNextTimeoutRef.current = setTimeout(() => {
+                    startNewProblem();
+                }, 2000);
+            };
+
+            const resetQuiz = () => {
+                setState({
+                    status: 'start',
+                    currentProblem: null,
+                    score: 0,
+                    totalAnswered: 0,
+                    isCorrect: null,
+                    selectedNature: null,
+                    startTime: null,
+                    endTime: null,
+                    mistakes: [],
+                    usedProblems: [],
+                });
+            };
+
+            return (
+                <div className="h-[100dvh] flex flex-col bg-[#F8F9FD] text-[#4A4A4A] selection:bg-[#5D5FEF] selection:text-white overflow-hidden">
+                    <header className="flex-none border-b border-indigo-100 bg-white/70 backdrop-blur-xl z-10 px-4">
+                        <div className="max-w-4xl mx-auto h-11 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="bg-[#5D5FEF] p-1.5 rounded-lg shadow-md">
+                                    <Zap className="text-white" size={18} />
+                                </div>
+                                <h1 className="text-base font-black tracking-tight text-zinc-800">判別式ドリル</h1>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-2 font-sans overflow-y-auto overflow-x-hidden flex flex-col justify-center">
+                        <AnimatePresence mode="wait">
+                            {state.status === 'start' ? (
+                                <motion.div
+                                    key="start"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 1.05 }}
+                                    className="flex flex-col items-center justify-center py-4 space-y-6"
+                                >
+                                    <div className="text-center space-y-3">
+                                        <h2 className="text-3xl md:text-5xl font-black tracking-tight text-zinc-800 leading-tight">
+                                            判別式<br className="md:hidden" />トレーニング
+                                        </h2>
+                                        <p className="text-zinc-500 font-medium max-w-sm mx-auto leading-relaxed text-sm">
+                                            ２次方程式の解の種類を判別しよう！<br />制限時間なし・全１０問
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={startQuiz}
+                                        className="group relative inline-flex items-center justify-center px-10 py-5 font-black text-white transition-all duration-200 bg-[#5D5FEF] rounded-2xl hover:bg-indigo-600 active:scale-95 shadow-2xl shadow-indigo-200 text-xl overflow-hidden"
+                                    >
+                                        <span className="relative z-10 flex items-center gap-2">スタート！ <ChevronRight size={24} /></span>
+                                    </button>
+                                </motion.div>
+                            ) : state.status === 'result' ? (
+                                <motion.div key="summary" className="space-y-3 py-1">
+                                    <div className="text-center space-y-0.5">
+                                        <div className="inline-flex p-1.5 bg-indigo-50 rounded-full text-[#5D5FEF] mb-0.5">
+                                            <Trophy size={28} />
+                                        </div>
+                                        <h2 className="text-xl font-black text-zinc-800 tracking-tight">トレーニング終了！</h2>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                        <div className="bg-white p-3 rounded-2xl border border-indigo-50 shadow-sm flex flex-col items-center justify-center space-y-0.5">
+                                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">正解数</span>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-2xl font-black text-[#5D5FEF]">{state.score}</span>
+                                                <span className="text-[10px] font-bold text-zinc-400">/ 10</span>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-2xl border border-indigo-50 shadow-sm flex flex-col items-center justify-center space-y-0.5">
+                                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">タイム</span>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-xl font-black text-[#5D5FEF]">{formatTime(state.endTime - state.startTime)}</span>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-2xl border border-[#5D5FEF]/20 shadow-md flex flex-col items-center justify-center space-y-0.5">
+                                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">総合スコア</span>
+                                            <span className="text-2xl font-black text-[#5D5FEF]">
+                                                {(() => {
+                                                    const timeInSeconds = (state.endTime - state.startTime) / 1000;
+                                                    return state.score * 1000 + Math.max(0, Math.floor((120 - timeInSeconds) * 20));
+                                                })()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col items-center gap-2 pt-1">
+                                        <button onClick={resetQuiz} className="px-6 py-2.5 bg-[#5D5FEF] text-white font-black rounded-full shadow-lg hover:bg-indigo-600 transition-all active:scale-95 flex items-center gap-2 text-xs">
+                                            <RefreshCw size={16} /> もう一度挑戦する
+                                        </button>
+                                    </div>
+                                    {state.mistakes.length > 0 && (
+                                        <div className="space-y-2 pt-3 border-t border-indigo-50">
+                                            <h3 className="text-[11px] font-black text-zinc-700 flex items-center gap-1.5 justify-center">
+                                                <HelpCircle size={14} className="text-rose-500" /> ミスした問題を復習
+                                            </h3>
+                                            <div className="grid grid-cols-1 gap-2.5 max-h-[180px] overflow-y-auto pr-1">
+                                                {state.mistakes.map((mistake, idx) => (
+                                                    <div key={idx} className="bg-white p-3 rounded-2xl border border-rose-100 shadow-sm space-y-2">
+                                                        <div className="flex justify-between items-center"><span className="text-[10px] font-black text-rose-500">No.{mistake.questionNumber}</span></div>
+                                                        <div className="flex flex-col sm:flex-row gap-2 items-center">
+                                                            <div className="flex-1 text-center px-2 py-2 bg-zinc-50/50 rounded-xl flex items-center justify-center min-h-[40px]">
+                                                                <p className="text-sm font-black text-zinc-800 tracking-tight leading-none">{formatEquation(mistake.problem.a, mistake.problem.b, mistake.problem.c)}</p>
+                                                            </div>
+                                                            <div className="flex-[2] text-[10px] font-sans font-bold text-zinc-500 bg-zinc-50 p-2 rounded-xl border border-zinc-100 leading-tight flex flex-col justify-center">
+                                                                <div className="grid grid-cols-[1.5rem_1fr] gap-x-1 mx-auto">
+                                                                    <div className="text-[#5D5FEF] font-bold text-right">D =</div>
+                                                                    <div className="text-left text-zinc-400 font-medium">({mistake.problem.b})² - 4({mistake.problem.a})({mistake.problem.c})</div>
+                                                                    <div className="text-[#5D5FEF] font-bold text-right">=</div>
+                                                                    <div className="text-left"><span className="font-black text-zinc-800">{mistake.problem.discriminant}</span> <span className="ml-1 text-[#5D5FEF] font-black">{mistake.problem.discriminant > 0 ? "> 0" : (mistake.problem.discriminant < 0 ? "< 0" : "= 0")}</span></div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex-none sm:w-28 flex flex-col justify-center gap-1 pl-2 border-l border-zinc-100 h-full">
+                                                                <div>
+                                                                    <div className="text-[7px] text-zinc-400 font-bold uppercase mb-0.5">正解</div>
+                                                                    <div className="text-[9px] text-rose-500 font-black leading-tight">{getNatureLabel(mistake.problem.nature)}</div>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-[7px] text-zinc-400 font-bold uppercase mb-0.5">あなたの回答</div>
+                                                                    <div className="text-[9px] text-[#5D5FEF] font-black leading-tight">{getNatureLabel(mistake.userAnswer)}</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </motion.div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="text-center">
+                                        <h2 className="text-sm md:text-base font-black text-[#5D5FEF]">次の２次方程式の解の種類を判別しよう！</h2>
+                                    </div>
+                                    <div className="relative h-20 md:h-28 flex items-center justify-center">
+                                        <AnimatePresence mode="wait">
+                                            <motion.div key={JSON.stringify(state.currentProblem)} className="w-full p-4 bg-amber-50/80 border border-amber-200/60 rounded-xl shadow-sm text-center relative z-1">
+                                                <p className="text-xl md:text-3xl font-black tracking-tighter text-zinc-800">{state.currentProblem ? formatEquation(state.currentProblem.a, state.currentProblem.b, state.currentProblem.c) : 'Loading...'}</p>
+                                            </motion.div>
+                                        </AnimatePresence>
+                                        <AnimatePresence>
+                                            {showMarker && (
+                                                <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1.1 }} exit={{ opacity: 0, scale: 1.3 }} className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+                                                    <span className={`text-[120px] md:text-[180px] font-black pointer-events-none drop-shadow-2xl ${showMarker === 'correct' ? 'text-rose-500' : 'text-emerald-500'}`}>{showMarker === 'correct' ? '〇' : '×'}</span>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                        <OptionCard id="distinct_real" title="異なる2つの実数解" icon={Zap} selected={state.selectedNature === 'distinct_real'} disabled={state.isCorrect !== null} onClick={() => handleAnswer('distinct_real')} status={state.isCorrect !== null ? (state.currentProblem?.nature === 'distinct_real' ? 'correct' : (state.selectedNature === 'distinct_real' ? 'wrong' : 'neutral')) : 'neutral'} />
+                                        <OptionCard id="repeated_real" title="重解" icon={Star} selected={state.selectedNature === 'repeated_real'} disabled={state.isCorrect !== null} onClick={() => handleAnswer('repeated_real')} status={state.isCorrect !== null ? (state.currentProblem?.nature === 'repeated_real' ? 'correct' : (state.selectedNature === 'repeated_real' ? 'wrong' : 'neutral')) : 'neutral'} />
+                                        <OptionCard id="distinct_complex" title="異なる2つの虚数解" icon={Sparkles} selected={state.selectedNature === 'distinct_complex'} disabled={state.isCorrect !== null} onClick={() => handleAnswer('distinct_complex')} status={state.isCorrect !== null ? (state.currentProblem?.nature === 'distinct_complex' ? 'correct' : (state.selectedNature === 'distinct_complex' ? 'wrong' : 'neutral')) : 'neutral'} />
+                                    </div>
+                                    <div className="min-h-[140px] md:min-h-[160px] flex items-start justify-center">
+                                        <AnimatePresence>
+                                            {state.isCorrect !== null && (
+                                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`w-full p-2.5 rounded-2xl border-2 ${state.isCorrect ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex items-center justify-between bg-white/40 p-1 rounded-lg">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={`p-1.5 rounded-full ${state.isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                                                    {state.isCorrect ? <Smile size={20} /> : <Cat size={20} />}
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className="text-sm font-black">{state.isCorrect ? '〇 正解！' : '× ざんねん...'}</h4>
+                                                                    <p className="text-[9px] font-bold text-zinc-500">{state.isCorrect ? 'その調子👍' : '次はあたるよ🔥'}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-1.5">
+                                                            <div className={!state.isCorrect ? "flex flex-col sm:flex-row gap-2 items-stretch" : "space-y-1.5"}>
+                                                                <div className={`bg-white/80 p-2.5 rounded-xl border border-zinc-100 shadow-sm space-y-1.5 ${!state.isCorrect ? 'flex-[1]' : ''}`}>
+                                                                    <div className="space-y-1">
+                                                                        <div className="flex items-center gap-1.5 text-[#5D5FEF]"><Binary size={12} /><span className="font-bold uppercase tracking-wider text-[10px]">計算式</span></div>
+                                                                        <div className="text-zinc-900 font-black text-base md:text-lg leading-tight grid grid-cols-[auto_1fr] gap-x-1.5">
+                                                                            <span className="text-right">D</span>
+                                                                            <div className="flex flex-col">
+                                                                                <span>= ({state.currentProblem?.b})² - 4 × {state.currentProblem?.a} × {state.currentProblem?.c}</span>
+                                                                                <span>= {state.currentProblem?.discriminant} {state.currentProblem?.discriminant > 0 ? "> 0" : (state.currentProblem?.discriminant < 0 ? "< 0" : "= 0")}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {!state.isCorrect && (
+                                                                    <div className="flex-[2] p-2.5 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-1.5">
+                                                                        <div className="flex items-center gap-1.5 text-[#5D5FEF]">
+                                                                            <HelpCircle size={14} />
+                                                                            <span className="text-[12px] font-black tracking-widest uppercase">おさらい ✨</span>
+                                                                        </div>
+                                                                        <div className="flex gap-2 items-stretch">
+                                                                            <div className="flex-1 bg-white/60 p-1.5 rounded-lg flex flex-col items-center justify-center border border-indigo-50">
+                                                                                <span className="text-[10px] font-bold text-indigo-400 mb-0.5 leading-tight text-center">解の判別式</span>
+                                                                                <span className="text-[14px] font-black text-indigo-600">D = b² - 4ac</span>
+                                                                            </div>
+                                                                            <div className="flex-[2.5] flex flex-col gap-1 text-[11px] font-bold">
+                                                                                <div className="px-1.5 py-1 bg-white rounded-md text-indigo-500 shadow-sm border border-indigo-50 whitespace-nowrap">D > 0 : 2つの実数解</div>
+                                                                                <div className="px-1.5 py-1 bg-white rounded-md text-indigo-500 shadow-sm border border-indigo-50 whitespace-nowrap">D = 0 : 重解</div>
+                                                                                <div className="px-1.5 py-1 bg-white rounded-md text-indigo-500 shadow-sm border border-indigo-50 whitespace-nowrap">D < 0 : 2つの虚数解</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                </div>
+                            )}
+                        </AnimatePresence>
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
