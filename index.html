@@ -40,6 +40,13 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+        @keyframes drift {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(100%); }
+        }
+        .animate-drift {
+            animation: drift 1s linear infinite;
+        }
     </style>
 </head>
 <body>
@@ -307,6 +314,7 @@
                                         className="group relative inline-flex items-center justify-center px-10 py-5 font-black text-white transition-all duration-200 bg-[#5D5FEF] rounded-2xl hover:bg-indigo-600 active:scale-95 shadow-2xl shadow-indigo-200 text-xl overflow-hidden"
                                     >
                                         <span className="relative z-10 flex items-center gap-2">スタート！ <ChevronRight size={24} /></span>
+                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[drift_1s_linear_infinite]" />
                                     </button>
                                 </motion.div>
                             ) : state.status === 'result' ? (
@@ -364,7 +372,7 @@
                                                                     <div className="text-[#5D5FEF] font-bold text-right">D =</div>
                                                                     <div className="text-left text-zinc-400 font-medium">({mistake.problem.b})² - 4({mistake.problem.a})({mistake.problem.c})</div>
                                                                     <div className="text-[#5D5FEF] font-bold text-right">=</div>
-                                                                    <div className="text-left"><span className="font-black text-zinc-800">{mistake.problem.discriminant}</span> <span className="ml-1 text-[#5D5FEF] font-black">{mistake.problem.discriminant > 0 ? "> 0" : (mistake.problem.discriminant < 0 ? "< 0" : "= 0")}</span></div>
+                                                                    <div className="text-left"><span className="font-black text-zinc-800">{mistake.problem.discriminant}</span> <span className="ml-1 text-[#5D5FEF] font-black">{mistake.problem.discriminant > 0 ? \"> 0\" : (mistake.problem.discriminant < 0 ? \"< 0\" : \"= 0\")}</span></div>
                                                                 </div>
                                                             </div>
                                                             <div className="flex-none sm:w-28 flex flex-col justify-center gap-1 pl-2 border-l border-zinc-100 h-full">
@@ -432,8 +440,8 @@
                                                                         <div className="text-zinc-900 font-black text-base md:text-lg leading-tight grid grid-cols-[auto_1fr] gap-x-1.5">
                                                                             <span className="text-right">D</span>
                                                                             <div className="flex flex-col">
-                                                                                <span>= ({state.currentProblem?.b})² - 4 × {state.currentProblem?.a} × {state.currentProblem?.c}</span>
-                                                                                <span>= {state.currentProblem?.discriminant} {state.currentProblem?.discriminant > 0 ? "> 0" : (state.currentProblem?.discriminant < 0 ? "< 0" : "= 0")}</span>
+                                                                                <span>= ({state.currentProblem?.b})² - 4 × {state.currentProblem?.a && state.currentProblem.a < 0 ? `(${state.currentProblem.a})` : state.currentProblem?.a} × {state.currentProblem?.c && state.currentProblem.c < 0 ? `(${state.currentProblem.c})` : state.currentProblem?.c}</span>
+                                                                                <span>= {state.currentProblem?.discriminant} {state.currentProblem?.discriminant > 0 ? \"> 0\" : (state.currentProblem?.discriminant < 0 ? \"< 0\" : \"= 0\")}</span>
                                                                             </div>
                                                                         </div>
                                                                     </div>
