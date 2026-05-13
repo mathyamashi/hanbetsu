@@ -368,17 +368,17 @@
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5 md:gap-2">
                       {[
-                        { id: 'distinct_real', label: '2つの実数解' },
+                        { id: 'distinct_real', label: '異なる2つの実数解' },
                         { id: 'repeated_real', label: '重解' },
-                        { id: 'distinct_complex', label: '2つの虚数解' }
+                        { id: 'distinct_complex', label: '異なる2つの虚数解' }
                       ].map(n => (
                         <button 
                           key={n.id} 
                           onClick={() => handleAnswer(n.id)} 
                           disabled={isCorrect !== null} 
-                          className={`relative p-3 md:p-5 border-4 rounded-2xl md:rounded-3xl text-sm md:text-lg font-black transition-all ${
+                          className={`relative p-3.5 md:p-5 border-4 rounded-2xl md:rounded-3xl text-sm md:text-lg font-black transition-all ${
                             isCorrect !== null 
                             ? (problem?.nature === n.id ? 'border-rose-400 bg-rose-50 text-rose-600 scale-[0.98]' : (selectedNature === n.id ? 'border-sky-400 bg-sky-50 text-sky-600' : 'border-zinc-100 text-zinc-300 opacity-50'))
                             : 'border-white bg-white text-zinc-700 shadow-md hover:border-[#5D5FEF] hover:shadow-xl hover:-translate-y-1'
