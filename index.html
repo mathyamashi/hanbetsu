@@ -1,387 +1,465 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Sparkles, Star, RefreshCw, HelpCircle, ChevronRight, 
-  Trophy, Binary, Smile, Cat, Zap 
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>判別式ドリル | Standalone</title>
 
-// --- 数学校正ロジック (ハングしないように改良) ---
-function generateProblem(canBeNegative = true) {
-  const a = (canBeNegative && Math.random() < 0.2) ? -1 : 1;
-  const rand = Math.random();
-  const targetNature = rand < 0.4 ? 'distinct_real' : (rand < 0.7 ? 'distinct_complex' : 'repeated_real');
-  
-  let b = 0, c = 0, d = 0;
-  
-  if (targetNature === 'repeated_real') {
-    const k = Math.floor(Math.random() * 7) - 3; 
-    b = 2 * a * k;
-    c = a * k * k;
-    d = 0;
-  } else if (targetNature === 'distinct_real') {
-    // d = b^2 - 4ac > 0
-    b = Math.floor(Math.random() * 11) - 5;
-    if (a === 1) {
-       // b^2 - 4c > 0 => c < b^2/4
-       const maxC = Math.floor((b * b - 1) / 4);
-       c = maxC - Math.floor(Math.random() * 4);
-    } else {
-       // b^2 + 4c > 0 => c > -b^2/4
-       const minC = Math.ceil((-b * b + 1) / 4);
-       c = minC + Math.floor(Math.random() * 4);
-    }
-    d = b * b - 4 * a * c;
-  } else {
-    // d = b^2 - 4ac < 0
-    b = Math.floor(Math.random() * 9) - 4;
-    if (a === 1) {
-       // b^2 - 4c < 0 => c > b^2/4
-       const minC = Math.ceil((b * b + 1) / 4);
-       c = minC + Math.floor(Math.random() * 4);
-    } else {
-       // b^2 + 4c < 0 => c < -b^2/4
-       const maxC = Math.floor((-b * b - 1) / 4);
-       c = maxC - Math.floor(Math.random() * 4);
-    }
-    d = b * b - 4 * a * c;
-  }
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+            },
+          },
+        },
+      };
+    </script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap"
+      rel="stylesheet"
+    />
 
-  // 万が一の保険
-  let nature: 'distinct_real' | 'distinct_complex' | 'repeated_real' = 'distinct_real';
-  if (d === 0) nature = 'repeated_real';
-  else if (d < 0) nature = 'distinct_complex';
+    <!-- React, ReactDOM, Babel, Framer Motion, Lucide -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/framer-motion@11.0.8/dist/framer-motion.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-  return { a, b, c, discriminant: d, nature };
-}
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #f8f9fd;
+        margin: 0;
+      }
+      #loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        font-weight: bold;
+        color: #5d5fef;
+      }
+      .custom-scroll::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scroll::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scroll::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading">読み込み中...</div>
+    <div id="root"></div>
 
-function formatEquation(a: number, b: number, c: number) {
-  const formatTerm = (val: number, variable: string, isFirst = false) => {
-    if (val === 0) return '';
-    let res = '';
-    if (val > 0 && !isFirst) res += '+ ';
-    if (val < 0) res += '- ';
-    const absVal = Math.abs(val);
-    if (absVal !== 1 || variable === '') res += absVal;
-    res += variable;
-    return res + ' ';
-  };
-  let str = formatTerm(a, 'x²', true);
-  str += formatTerm(b, 'x');
-  str += formatTerm(c, '');
-  if (str.trim() === '') return '0 = 0';
-  return str.trim() + ' = 0';
-}
+    <script type="text/babel">
+      const { useState, useEffect, useCallback, useRef } = React;
+      const { motion, AnimatePresence } = window.Motion || { motion: ({children}) => <div>{children}</div>, AnimatePresence: ({children}) => <>{children}</> };
 
-function getNatureLabel(nature: string) {
-  switch (nature) {
-    case 'distinct_real': return '異なる2つの実数解';
-    case 'repeated_real': return '重解';
-    case 'distinct_complex': return '異なる2つの虚数解';
-    default: return '';
-  }
-}
+      // --- 簡易アイコンコンポーネント (LucideのSVGを直接埋め込み) ---
+      const LucideIcon = ({ name, size = 24, className = "", fill = "none" }) => {
+        const icons = {
+          zap: <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>,
+          star: <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>,
+          refresh: <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>,
+          help: <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
+          chevron: <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m9 18 6-6-6-6"></path></svg>,
+          trophy: <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>,
+          binary: <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="14" y="14" width="4" height="6" rx="2"></rect><rect x="6" y="4" width="4" height="6" rx="2"></rect><path d="M6 20h4"></path><path d="M14 10h4"></path><path d="M6 14h2v6"></path><path d="M14 4h2v6"></path></svg>,
+          arrowLeft: <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>,
+          smile: <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+        };
+        return icons[name] || null;
+      };
 
-function formatTime(ms: number) {
-  const totalSec = ms / 1000;
-  const min = Math.floor(totalSec / 60);
-  const sec = (totalSec % 60).toFixed(1);
-  if (min > 0) {
-    return `${min}分${sec}秒`;
-  }
-  return `${sec}秒`;
-}
+      // --- 数学校正ロジック ---
+      function generateProblem(canBeNegative = true) {
+        const a = (canBeNegative && Math.random() < 0.2) ? -1 : 1;
+        const rand = Math.random();
+        const targetNature = rand < 0.4 ? 'distinct_real' : (rand < 0.7 ? 'distinct_complex' : 'repeated_real');
+        
+        let b = 0, c = 0, d = 0;
+        
+        if (targetNature === 'repeated_real') {
+          const k = Math.floor(Math.random() * 7) - 3; 
+          b = 2 * a * k;
+          c = a * k * k;
+          d = 0;
+        } else if (targetNature === 'distinct_real') {
+          b = Math.floor(Math.random() * 11) - 5;
+          if (a === 1) {
+             const maxC = Math.floor((b * b - 1) / 4);
+             c = maxC - Math.floor(Math.random() * 4);
+          } else {
+             const minC = Math.ceil((-b * b + 1) / 4);
+             c = minC + Math.floor(Math.random() * 4);
+          }
+          d = b * b - 4 * a * c;
+        } else {
+          b = Math.floor(Math.random() * 9) - 4;
+          if (a === 1) {
+             const minC = Math.ceil((b * b + 1) / 4);
+             c = minC + Math.floor(Math.random() * 4);
+          } else {
+             const maxC = Math.floor((-b * b - 1) / 4);
+             c = maxC - Math.floor(Math.random() * 4);
+          }
+          d = b * b - 4 * a * c;
+        }
 
-type Problem = ReturnType<typeof generateProblem>;
+        let nature = 'distinct_real';
+        if (d === 0) nature = 'repeated_real';
+        else if (d < 0) nature = 'distinct_complex';
 
-export default function App() {
-  const [status, setStatus] = useState<'start' | 'playing' | 'result'>('start');
-  const [problem, setProblem] = useState<Problem | null>(null);
-  const [score, setScore] = useState(0);
-  const [answeredCount, setAnsweredCount] = useState(0);
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [selectedNature, setSelectedNature] = useState<string | null>(null);
-  const [startTime, setStartTime] = useState<number | null>(null);
-  const [endTime, setEndTime] = useState<number | null>(null);
-  const [mistakes, setMistakes] = useState<any[]>([]);
-  const [showMarker, setShowMarker] = useState<'correct' | 'wrong' | null>(null);
-  const [negativeACount, setNegativeACount] = useState(0);
-  
-  const timerRef = useRef<any>(null);
+        return { a, b, c, discriminant: d, nature };
+      }
 
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
+      function formatEquation(a, b, c) {
+        const formatTerm = (val, variable, isFirst = false) => {
+          if (val === 0) return '';
+          let res = '';
+          if (val > 0 && !isFirst) res += '+ ';
+          if (val < 0) res += '- ';
+          const absVal = Math.abs(val);
+          if (absVal !== 1 || variable === '') res += absVal;
+          res += variable;
+          return res + ' ';
+        };
+        let str = formatTerm(a, 'x²', true);
+        str += formatTerm(b, 'x');
+        str += formatTerm(c, '');
+        if (str.trim() === '') return '0 = 0';
+        return str.trim() + ' = 0';
+      }
 
-  const startQuiz = () => {
-    const first = generateProblem(true);
-    setProblem(first);
-    setScore(0);
-    setAnsweredCount(1);
-    setIsCorrect(null);
-    setSelectedNature(null);
-    setShowMarker(null);
-    setNegativeACount(first.a === -1 ? 1 : 0);
-    setStartTime(Date.now());
-    setMistakes([]);
-    setStatus('playing');
-  };
+      function getNatureLabel(nature) {
+        switch (nature) {
+          case 'distinct_real': return '異なる2つの実数解';
+          case 'repeated_real': return '重解';
+          case 'distinct_complex': return '異なる2つの虚数解';
+          default: return '';
+        }
+      }
 
-  const moveToNext = useCallback(() => {
-    if (answeredCount >= 10) {
-      setEndTime(Date.now());
-      setStatus('result');
-    } else {
-      const nextProb = generateProblem(negativeACount < 1);
-      if (nextProb.a === -1) setNegativeACount(prev => prev + 1);
-      setProblem(nextProb);
-      setAnsweredCount(prev => prev + 1);
-      setIsCorrect(null);
-      setSelectedNature(null);
-      setShowMarker(null);
-    }
-  }, [answeredCount, negativeACount]);
+      function formatTime(ms) {
+        const totalSec = ms / 1000;
+        const min = Math.floor(totalSec / 60);
+        const sec = (totalSec % 60).toFixed(1);
+        if (min > 0) {
+          return `${min}分${sec}秒`;
+        }
+        return `${sec}秒`;
+      }
 
-  const formatDiscriminantCalc = (a: number, b: number, c: number) => {
-    const wrap = (val: number) => (val < 0 ? `(${val})` : val);
-    return `${wrap(b)}² - 4 × ${wrap(a)} × ${wrap(c)}`;
-  };
+      // --- アプリ ---
+      function App() {
+        const [status, setStatus] = useState('start');
+        const [problem, setProblem] = useState(null);
+        const [score, setScore] = useState(0);
+        const [answeredCount, setAnsweredCount] = useState(0);
+        const [isCorrect, setIsCorrect] = useState(null);
+        const [selectedNature, setSelectedNature] = useState(null);
+        const [startTime, setStartTime] = useState(null);
+        const [endTime, setEndTime] = useState(null);
+        const [mistakes, setMistakes] = useState([]);
+        const [showMarker, setShowMarker] = useState(null);
+        const [negativeACount, setNegativeACount] = useState(0);
+        
+        const timerRef = useRef(null);
 
-  const handleAnswer = (nature: string) => {
-    if (isCorrect !== null || !problem) return;
-    
-    const correct = nature === problem.nature;
-    setIsCorrect(correct);
-    setSelectedNature(nature);
-    
-    if (correct) {
-      setScore(prev => prev + 1);
-      setShowMarker('correct');
-    } else {
-      setMistakes(prev => [...prev, { problem, userAnswer: nature, qNum: answeredCount }]);
-      setShowMarker('wrong');
-    }
-  };
+        useEffect(() => {
+          const loader = document.getElementById('loading');
+          if (loader) loader.style.display = 'none';
+          return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+          };
+        }, []);
 
-  return (
-    <div className="min-h-screen flex flex-col bg-[#F8F9FD] text-[#4A4A4A] overflow-x-hidden font-sans">
-      <header className="bg-white/80 backdrop-blur-md border-b p-3 flex justify-between items-center sticky top-0 z-10 shadow-sm px-4">
-        <div className="flex items-center gap-2">
-          <Zap className="text-[#5D5FEF]" size={20} />
-          <h1 className="font-black text-lg tracking-tight text-zinc-800">判別式ドリル</h1>
-        </div>
-        {status !== 'start' && (
-          <button 
-            onClick={() => setStatus('start')}
-            className="flex items-center gap-1 text-xs font-black text-zinc-400 hover:text-[#5D5FEF] transition-colors uppercase tracking-widest"
-          >
-            <ChevronRight className="rotate-180" size={14} /> Back
-          </button>
-        )}
-      </header>
+        const startQuiz = () => {
+          const first = generateProblem(true);
+          setProblem(first);
+          setScore(0);
+          setAnsweredCount(1);
+          setIsCorrect(null);
+          setSelectedNature(null);
+          setShowMarker(null);
+          setNegativeACount(first.a === -1 ? 1 : 0);
+          setStartTime(Date.now());
+          setMistakes([]);
+          setStatus('playing');
+        };
 
-      <main className="flex-1 flex flex-col items-center justify-start pt-12 p-4 max-w-2xl mx-auto w-full">
-        <AnimatePresence mode="wait">
-          {status === 'start' ? (
-            <motion.div 
-              key="start" 
-              initial={{ opacity: 0, scale: 0.9 }} 
-              animate={{ opacity: 1, scale: 1 }} 
-              exit={{ opacity: 0, scale: 1.1 }} 
-              className="text-center space-y-8"
-            >
-              <h2 className="text-5xl md:text-7xl font-black text-zinc-800 leading-tight tracking-tighter">
-                判別式<br/><span className="text-[#5D5FEF]">Training</span>
-              </h2>
-              <p className="text-zinc-500 font-bold text-lg">
-                ２次方程式の解の判別式「D = b² - 4ac」をマスターしよう！<br/>
-                <span className="text-zinc-400 text-sm">全１０回 / タイムアタック</span>
-              </p>
-              <button 
-                onClick={startQuiz} 
-                className="px-12 py-6 bg-[#5D5FEF] text-white font-black text-2xl rounded-3xl shadow-xl hover:shadow-2xl hover:bg-indigo-600 hover:-translate-y-1 transition-all flex items-center gap-3 mx-auto"
-              >
-                START <ChevronRight size={28} />
-              </button>
-            </motion.div>
-          ) : status === 'result' ? (
-            <motion.div 
-              key="result"
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              className="space-y-4 w-full py-6"
-            >
-              <div className="text-center">
-                <Trophy className="mx-auto text-amber-400 mb-1" size={48} />
-                <h2 className="text-2xl font-black">Result</h2>
+        const moveToNext = useCallback(() => {
+          if (answeredCount >= 10) {
+            setEndTime(Date.now());
+            setStatus('result');
+          } else {
+            const nextProb = generateProblem(negativeACount < 1);
+            if (nextProb.a === -1) setNegativeACount(prev => prev + 1);
+            setProblem(nextProb);
+            setAnsweredCount(prev => prev + 1);
+            setIsCorrect(null);
+            setSelectedNature(null);
+            setShowMarker(null);
+          }
+        }, [answeredCount, negativeACount]);
+
+        const formatDiscriminantCalc = (a, b, c) => {
+          const wrap = (val) => (val < 0 ? `(${val})` : val);
+          return `${wrap(b)}² - 4 × ${wrap(a)} × ${wrap(c)}`;
+        };
+
+        const handleAnswer = (nature) => {
+          if (isCorrect !== null || !problem) return;
+          
+          const correct = nature === problem.nature;
+          setIsCorrect(correct);
+          setSelectedNature(nature);
+          
+          if (correct) {
+            setScore(prev => prev + 1);
+            setShowMarker('correct');
+          } else {
+            setMistakes(prev => [...prev, { problem, userAnswer: nature, qNum: answeredCount }]);
+            setShowMarker('wrong');
+          }
+        };
+
+        return (
+          <div className="min-h-screen flex flex-col bg-[#F8F9FD] text-[#4A4A4A] overflow-x-hidden font-sans">
+            <header className="bg-white/80 backdrop-blur-md border-b p-3 flex justify-between items-center sticky top-0 z-10 shadow-sm px-4">
+              <div className="flex items-center gap-2">
+                <LucideIcon name="zap" size={20} className="text-[#5D5FEF]" />
+                <h1 className="font-black text-lg tracking-tight text-zinc-800">判別式ドリル</h1>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white p-6 rounded-3xl shadow-sm border border-indigo-50 text-center">
-                  <p className="text-zinc-400 font-bold text-sm mb-1 uppercase">Score</p>
-                  <p className="text-4xl font-black text-[#5D5FEF]">{score} / 10</p>
-                </div>
-                <div className="bg-white p-6 rounded-3xl shadow-sm border border-indigo-50 text-center">
-                  <p className="text-zinc-400 font-bold text-sm mb-1 uppercase">Time</p>
-                  <p className="text-4xl font-black text-[#5D5FEF]">{startTime && endTime ? formatTime(endTime - startTime) : '-'}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setStatus('start')} 
-                className="w-full py-5 bg-[#5D5FEF] text-white font-black text-xl rounded-2xl shadow-lg hover:bg-indigo-600 transition-all flex items-center justify-center gap-2"
-              >
-                <RefreshCw size={24} /> もう一度挑戦
-              </button>
-              
-              {mistakes.length > 0 && (
-                <div className="space-y-2 pt-4 border-t border-zinc-200">
-                  <h3 className="text-center font-black text-rose-500 text-xs uppercase tracking-wider">Review mistakes</h3>
-                  <div className="grid gap-2 max-h-[220px] overflow-y-auto pr-2 pb-2 custom-scroll">
-                    {mistakes.map((m, i) => (
-                      <div key={i} className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm grid grid-cols-1 md:grid-cols-3 items-center gap-2">
-                        <div className="flex flex-col items-center md:items-start text-sm">
-                          <div className="text-[8px] font-black text-zinc-300 uppercase tracking-widest mb-0.5">
-                            No. {m.qNum}
-                          </div>
-                          <div className="font-black text-base text-zinc-700 whitespace-nowrap">{formatEquation(m.problem.a, m.problem.b, m.problem.c)}</div>
-                        </div>
-                        <div className="flex justify-center">
-                          <div className="bg-zinc-100 px-2 py-1 rounded-lg font-bold text-zinc-500 text-[8px] text-center leading-tight">
-                            <span className="block text-[6px] text-zinc-400 mb-0.5 uppercase">Discriminant</span>
-                            D = {formatDiscriminantCalc(m.problem.a, m.problem.b, m.problem.c)} = {m.problem.discriminant}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-center md:items-end gap-0.5 shrink-0">
-                          <div className="text-[8px] font-bold text-zinc-400">
-                            選んだ答え: <span className="text-zinc-600">{getNatureLabel(m.userAnswer)}</span>
-                          </div>
-                          <div className="text-[8px] font-black text-[#5D5FEF]">
-                            正解: <span className="text-rose-500 text-[10px]">{getNatureLabel(m.problem.nature)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {status !== 'start' && (
+                <button 
+                  onClick={() => setStatus('start')}
+                  className="flex items-center gap-1 text-xs font-black text-zinc-400 hover:text-[#5D5FEF] transition-colors uppercase tracking-widest"
+                >
+                  <LucideIcon name="arrowLeft" size={14} className="rotate-0" /> Back
+                </button>
               )}
-            </motion.div>
-          ) : (
-            <motion.div 
-              key={answeredCount} 
-              initial={{ opacity: 0, x: 10 }} 
-              animate={{ opacity: 1, x: 0 }} 
-              exit={{ opacity: 0, x: -10 }}
-              className="w-full space-y-6"
-            >
-              <div className="flex justify-between items-center px-2">
-                <div className="flex items-center gap-2">
-                  <div className="bg-[#5D5FEF] text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-tighter">Progress</div>
-                  <span className="text-sm font-black text-zinc-400">{answeredCount} / 10</span>
-                </div>
-                <div className="text-sm font-black text-[#5D5FEF] flex items-center gap-1">
-                  <Star size={14} fill="currentColor" /> {score} pts
-                </div>
-              </div>
+            </header>
 
-              <div className="relative bg-zinc-900 rounded-[2rem] p-12 flex items-center justify-center min-h-[180px] shadow-2xl overflow-hidden group">
-                <p className="text-3xl md:text-5xl font-black tracking-tighter text-white z-10">
-                  {problem && formatEquation(problem.a, problem.b, problem.c)}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {[
-                  { id: 'distinct_real', label: '2つの実数解' },
-                  { id: 'repeated_real', label: '重解' },
-                  { id: 'distinct_complex', label: '2つの虚数解' }
-                ].map(n => (
-                  <button 
-                    key={n.id} 
-                    onClick={() => handleAnswer(n.id)} 
-                    disabled={isCorrect !== null} 
-                    className={`relative p-5 border-4 rounded-3xl text-lg font-black transition-all ${
-                      isCorrect !== null 
-                      ? (problem?.nature === n.id ? 'border-rose-400 bg-rose-50 text-rose-600 scale-[0.98]' : (selectedNature === n.id ? 'border-sky-400 bg-sky-50 text-sky-600' : 'border-zinc-100 text-zinc-300 opacity-50'))
-                      : 'border-white bg-white text-zinc-700 shadow-md hover:border-[#5D5FEF] hover:shadow-xl hover:-translate-y-1'
-                    }`}
+            <main className="flex-1 flex flex-col items-center justify-start pt-12 p-4 max-w-2xl mx-auto w-full">
+              <AnimatePresence mode="wait">
+                {status === 'start' ? (
+                  <motion.div 
+                    key="start"
+                    initial={{ opacity: 0, scale: 0.9 }} 
+                    animate={{ opacity: 1, scale: 1 }} 
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="space-y-8 text-center"
                   >
-                    {n.label}
-                    {/* 正解表示用の〇 */}
-                    {isCorrect !== null && problem?.nature === n.id && (
-                      <div className="absolute top-0 right-2 text-rose-500 text-3xl opacity-80 select-none">〇</div>
-                    )}
-                    {/* 間違い表示用の× */}
-                    {isCorrect === false && selectedNature === n.id && (
-                      <div className="absolute top-0 right-2 text-sky-500 text-3xl opacity-80 select-none">×</div>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              <div className="min-h-[180px] flex items-start justify-center">
-                <AnimatePresence mode="wait">
-                  {isCorrect !== null && problem ? (
-                    <motion.div 
-                      key="explanation"
-                      initial={{ opacity: 0, y: 30 }} 
-                      animate={{ opacity: 1, y: 0 }} 
-                      className={`w-full p-6 rounded-3xl border-2 shadow-sm ${isCorrect ? 'bg-rose-50 border-rose-100' : 'bg-sky-50 border-sky-100'}`}
+                    <h2 className="text-5xl md:text-7xl font-black text-zinc-800 leading-tight tracking-tighter">
+                      判別式<br/><span className="text-[#5D5FEF]">Training</span>
+                    </h2>
+                    <p className="text-zinc-500 font-bold text-lg">
+                      ２次方程式の解の判別式「D = b² - 4ac」をマスターしよう！<br/>
+                      <span className="text-zinc-400 text-sm">全１０回 / タイムアタック</span>
+                    </p>
+                    <button 
+                      onClick={startQuiz} 
+                      className="px-12 py-6 bg-[#5D5FEF] text-white font-black text-2xl rounded-3xl shadow-xl hover:shadow-2xl hover:bg-indigo-600 hover:-translate-y-1 transition-all flex items-center gap-3 mx-auto"
                     >
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className={`p-2 rounded-xl ${isCorrect ? 'bg-rose-500' : 'bg-sky-500'}`}>
-                          {isCorrect ? <Smile className="text-white" /> : <HelpCircle className="text-white" />}
-                        </div>
-                        <h4 className="font-black text-xl">{isCorrect ? '正解！' : '残念...次はできるよ！'}</h4>
+                      START <LucideIcon name="chevron" size={28} />
+                    </button>
+                  </motion.div>
+                ) : status === 'result' ? (
+                  <motion.div 
+                    key="result"
+                    initial={{ opacity: 0 }} 
+                    animate={{ opacity: 1 }} 
+                    exit={{ opacity: 0 }}
+                    className="space-y-4 w-full py-6"
+                  >
+                    <div className="text-center">
+                      <LucideIcon name="trophy" size={48} className="mx-auto text-amber-400 mb-1" />
+                      <h2 className="text-2xl font-black">Result</h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white p-6 rounded-3xl shadow-sm border border-indigo-50 text-center">
+                        <p className="text-zinc-400 font-bold text-sm mb-1 uppercase">Score</p>
+                        <p className="text-4xl font-black text-[#5D5FEF]">{score} / 10</p>
                       </div>
-                      <div className="flex flex-col md:flex-row gap-4">
-                        <div className="flex-1 p-4 bg-white/70 rounded-2xl space-y-2">
-                          <div className="flex items-center gap-2 text-zinc-400 font-bold text-xs uppercase tracking-widest"><Binary size={12}/><span>Explanation</span></div>
-                          <p className="font-bold text-zinc-600">
-                            D = {formatDiscriminantCalc(problem.a, problem.b, problem.c)} = <span className="text-[#5D5FEF] underline">{problem.discriminant}</span>
-                          </p>
-                          <p className="font-black text-xl text-zinc-800">
-                            D {problem.discriminant > 0 ? '> 0' : (problem.discriminant < 0 ? '< 0' : '= 0')} なので <span className="text-[#5D5FEF]">{getNatureLabel(problem.nature)}</span>
-                          </p>
+                      <div className="bg-white p-6 rounded-3xl shadow-sm border border-indigo-50 text-center">
+                        <p className="text-zinc-400 font-bold text-sm mb-1 uppercase">Time</p>
+                        <p className="text-4xl font-black text-[#5D5FEF]">{startTime && endTime ? formatTime(endTime - startTime) : '-'}</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setStatus('start')} 
+                      className="w-full py-5 bg-[#5D5FEF] text-white font-black text-xl rounded-2xl shadow-lg hover:bg-indigo-600 transition-all flex items-center justify-center gap-2"
+                    >
+                      <LucideIcon name="refresh" size={24} /> もう一度挑戦
+                    </button>
+                    
+                    {mistakes.length > 0 && (
+                      <div className="space-y-2 pt-4 border-t border-zinc-200">
+                        <h3 className="text-center font-black text-rose-500 text-xs uppercase tracking-wider">Review mistakes</h3>
+                        <div className="grid gap-2 max-h-[220px] overflow-y-auto pr-2 pb-2 custom-scroll">
+                          {mistakes.map((m, i) => (
+                            <div key={i} className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm grid grid-cols-1 md:grid-cols-3 items-center gap-2">
+                              <div className="flex flex-col items-center md:items-start text-sm">
+                                <div className="text-[8px] font-black text-zinc-300 uppercase tracking-widest mb-0.5">
+                                  No. {m.qNum}
+                                </div>
+                                <div className="font-black text-base text-zinc-700 whitespace-nowrap">{formatEquation(m.problem.a, m.problem.b, m.problem.c)}</div>
+                              </div>
+                              <div className="flex justify-center">
+                                <div className="bg-zinc-100 px-2 py-1 rounded-lg font-bold text-zinc-500 text-[8px] text-center leading-tight">
+                                  <span className="block text-[6px] text-zinc-400 mb-0.5 uppercase">Discriminant</span>
+                                  D = {formatDiscriminantCalc(m.problem.a, m.problem.b, m.problem.c)} = {m.problem.discriminant}
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-center md:items-end gap-0.5 shrink-0">
+                                <div className="text-[8px] font-bold text-zinc-400">
+                                  選んだ答え: <span className="text-zinc-600">{getNatureLabel(m.userAnswer)}</span>
+                                </div>
+                                <div className="text-[8px] font-black text-[#5D5FEF]">
+                                  正解: <span className="text-rose-500 text-[10px]">{getNatureLabel(m.problem.nature)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
+                      </div>
+                    )}
+                  </motion.div>
+                ) : (
+                  <motion.div 
+                    key={answeredCount} 
+                    initial={{ opacity: 0, x: 10 }} 
+                    animate={{ opacity: 1, x: 0 }} 
+                    exit={{ opacity: 0, x: -10 }}
+                    className="w-full space-y-6"
+                  >
+                    <div className="flex justify-between items-center px-2">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-[#5D5FEF] text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-tighter">Progress</div>
+                        <span className="text-sm font-black text-zinc-400">{answeredCount} / 10</span>
+                      </div>
+                      <div className="text-sm font-black text-[#5D5FEF] flex items-center gap-1">
+                        <LucideIcon name="star" size={14} fill="currentColor" /> {score} pts
+                      </div>
+                    </div>
+
+                    <div className="relative bg-zinc-900 rounded-[2rem] p-12 flex items-center justify-center min-h-[180px] shadow-2xl overflow-hidden group">
+                      <p className="text-3xl md:text-5xl font-black tracking-tighter text-white z-10">
+                        {problem && formatEquation(problem.a, problem.b, problem.c)}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {[
+                        { id: 'distinct_real', label: '2つの実数解' },
+                        { id: 'repeated_real', label: '重解' },
+                        { id: 'distinct_complex', label: '2つの虚数解' }
+                      ].map(n => (
                         <button 
-                          onClick={moveToNext}
-                          className={`px-8 py-4 rounded-2xl font-black text-xl shadow-lg transition-all flex items-center justify-center gap-2 group ${
-                            isCorrect ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-sky-500 text-white hover:bg-sky-600'
+                          key={n.id} 
+                          onClick={() => handleAnswer(n.id)} 
+                          disabled={isCorrect !== null} 
+                          className={`relative p-5 border-4 rounded-3xl text-lg font-black transition-all ${
+                            isCorrect !== null 
+                            ? (problem?.nature === n.id ? 'border-rose-400 bg-rose-50 text-rose-600 scale-[0.98]' : (selectedNature === n.id ? 'border-sky-400 bg-sky-50 text-sky-600' : 'border-zinc-100 text-zinc-300 opacity-50'))
+                            : 'border-white bg-white text-zinc-700 shadow-md hover:border-[#5D5FEF] hover:shadow-xl hover:-translate-y-1'
                           }`}
                         >
-                          NEXT <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                          {n.label}
+                          {isCorrect !== null && problem?.nature === n.id && (
+                            <div className="absolute top-0 right-2 text-rose-500 text-3xl opacity-80 select-none">〇</div>
+                          )}
+                          {isCorrect === false && selectedNature === n.id && (
+                            <div className="absolute top-0 right-2 text-sky-500 text-3xl opacity-80 select-none">×</div>
+                          )}
                         </button>
-                      </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div 
-                      key="footer"
-                      initial={{ opacity: 0 }} 
-                      animate={{ opacity: 1 }}
-                      className="pt-12 text-center"
-                    >
-                      <button 
-                        onClick={() => {
-                          if(window.confirm("ドリルを中断してタイトルに戻りますか？")) setStatus('start');
-                        }}
-                        className="px-6 py-2 border-2 border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:border-zinc-300 font-black text-xs rounded-full transition-all uppercase tracking-widest flex items-center gap-2 mx-auto"
-                      >
-                        <ChevronRight className="rotate-180" size={14} /> ドリルを中断する
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
+                      ))}
+                    </div>
 
-      <footer className="p-4 text-center text-[10px] text-zinc-300 font-bold uppercase tracking-widest">
-        Quadratic Discriminant Drill v2.1
-      </footer>
-    </div>
-  );
-}
+                    <div className="min-h-[180px] flex items-start justify-center">
+                      <AnimatePresence mode="wait">
+                        {isCorrect !== null && problem ? (
+                          <motion.div 
+                            key="explanation"
+                            initial={{ opacity: 0, y: 30 }} 
+                            animate={{ opacity: 1, y: 0 }} 
+                            className={`w-full p-6 rounded-3xl border-2 shadow-sm ${isCorrect ? 'bg-rose-50 border-rose-100' : 'bg-sky-50 border-sky-100'}`}
+                          >
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className={`p-2 rounded-xl ${isCorrect ? 'bg-rose-500' : 'bg-sky-500'}`}>
+                                {isCorrect ? <LucideIcon name="smile" size={24} className="text-white" /> : <LucideIcon name="help" size={24} className="text-white" />}
+                              </div>
+                              <h4 className="font-black text-xl">{isCorrect ? '正解！' : '残念...次はできるよ！'}</h4>
+                            </div>
+                            <div className="flex flex-col md:flex-row gap-4">
+                              <div className="flex-1 p-4 bg-white/70 rounded-2xl space-y-2">
+                                <div className="flex items-center gap-2 text-zinc-400 font-bold text-xs uppercase tracking-widest"><LucideIcon name="binary" size={12}/><span>Explanation</span></div>
+                                <p className="font-bold text-zinc-600">
+                                  D = {formatDiscriminantCalc(problem.a, problem.b, problem.c)} = <span className="text-[#5D5FEF] underline">{problem.discriminant}</span>
+                                </p>
+                                <p className="font-black text-xl text-zinc-800">
+                                  D {problem.discriminant > 0 ? '> 0' : (problem.discriminant < 0 ? '< 0' : '= 0')} なので <span className="text-[#5D5FEF]">{getNatureLabel(problem.nature)}</span>
+                                </p>
+                              </div>
+                              <button 
+                                onClick={moveToNext}
+                                className={`px-8 py-4 rounded-2xl font-black text-xl shadow-lg transition-all flex items-center justify-center gap-2 group ${
+                                  isCorrect ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-sky-500 text-white hover:bg-sky-600'
+                                }`}
+                              >
+                                NEXT <LucideIcon name="chevron" size={20} className="group-hover:translate-x-1 transition-transform" />
+                              </button>
+                            </div>
+                          </motion.div>
+                        ) : (
+                          <motion.div 
+                            key="footer"
+                            initial={{ opacity: 0 }} 
+                            animate={{ opacity: 1 }}
+                            className="pt-12 text-center"
+                          >
+                            <button 
+                              onClick={() => {
+                                if(confirm("ドリルを中断してタイトルに戻りますか？")) setStatus('start');
+                              }}
+                              className="px-6 py-2 border-2 border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:border-zinc-300 font-black text-xs rounded-full transition-all uppercase tracking-widest flex items-center gap-2 mx-auto"
+                            >
+                              <LucideIcon name="arrowLeft" size={14} className="rotate-180" /> ドリルを中断する
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </main>
 
+            <footer className="p-4 text-center text-[10px] text-zinc-300 font-bold uppercase tracking-widest">
+              Quadratic Discriminant Drill v2.1 | Standalone
+            </footer>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
+  </body>
+</html>
