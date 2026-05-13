@@ -180,7 +180,6 @@
         const [startTime, setStartTime] = useState(null);
         const [endTime, setEndTime] = useState(null);
         const [mistakes, setMistakes] = useState([]);
-        const [showMarker, setShowMarker] = useState(null);
         const [negativeACount, setNegativeACount] = useState(0);
         
         const timerRef = useRef(null);
@@ -195,15 +194,16 @@
 
         const startQuiz = () => {
           const first = generateProblem(true);
-          setProblem(first);
+          // 状態をまとめてリセット
           setScore(0);
-          setAnsweredCount(1);
+          setMistakes([]);
           setIsCorrect(null);
           setSelectedNature(null);
-          setShowMarker(null);
+          
+          setProblem(first);
+          setAnsweredCount(1);
           setNegativeACount(first.a === -1 ? 1 : 0);
           setStartTime(Date.now());
-          setMistakes([]);
           setStatus('playing');
         };
 
@@ -213,12 +213,15 @@
             setStatus('result');
           } else {
             const nextProb = generateProblem(negativeACount < 1);
-            if (nextProb.a === -1) setNegativeACount(prev => prev + 1);
-            setProblem(nextProb);
-            setAnsweredCount(prev => prev + 1);
+            
+            // 重要：回答状態を先にリセットする
             setIsCorrect(null);
             setSelectedNature(null);
-            setShowMarker(null);
+            
+            // 次の問題をセット
+            setProblem(nextProb);
+            setAnsweredCount(prev => prev + 1);
+            if (nextProb.a === -1) setNegativeACount(prev => prev + 1);
           }
         }, [answeredCount, negativeACount]);
 
@@ -231,15 +234,13 @@
           if (isCorrect !== null || !problem) return;
           
           const correct = nature === problem.nature;
-          setIsCorrect(correct);
           setSelectedNature(nature);
+          setIsCorrect(correct);
           
           if (correct) {
             setScore(prev => prev + 1);
-            setShowMarker('correct');
           } else {
             setMistakes(prev => [...prev, { problem, userAnswer: nature, qNum: answeredCount }]);
-            setShowMarker('wrong');
           }
         };
 
@@ -273,7 +274,7 @@
                       判別式<br/><span className="text-[#5D5FEF]">Training</span>
                     </h2>
                     <p className="text-zinc-500 font-bold text-lg">
-                      ２次方程式の解の判別式「D = b² - 4ac」をマスターしよう！<br/>
+                      ２次方程式の解の判別式<br className="md:hidden" />「D = b² - 4ac」をマスターしよう！<br/>
                       <span className="text-zinc-400 text-sm">全１０回 / タイムアタック</span>
                     </p>
                     <button 
